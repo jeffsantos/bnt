@@ -44,6 +44,9 @@ tab = [[1 1 1 .2];...
 
 bnet.CPD{2} = tabular_CPD (bnet, 2, tab(:,4));
 
+G = bnet.dag;
+draw_graph(G);
+
 export_dnet(bnet,'test1', 1)
 
 m = 20;

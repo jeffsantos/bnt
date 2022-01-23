@@ -1,4 +1,4 @@
-function S = export_dnet(bnet, file, proba)
+function S = export_dnet(bnet, outputdir, file, proba)
 % filepath = export_dnet(bnet, 'filename', includeparameters)
 %  filename and includeparameters ([0] or 1) are optional
 %
@@ -14,27 +14,32 @@ function S = export_dnet(bnet, file, proba)
 if nargin==1, file=['dnet' datestr(now,'-yymmdd-HHMMSS')]; end
 if nargin<3, proba=0; end
 
+% @jeff --
 % generating filename
-if length(file)>4,
-  if prod(double(file((end-4):end)~='.dnet')), file=[file '.dnet']; end
-  name = file(1:end-5);
-else
-  name = file;
-  file = [file '.dnet'];
-end
+% if length(file)>4,
+%   if prod(double(file((end-4):end)~='.dnet')), file=[file '.dnet']; end
+%   name = file(1:end-5);
+% else
+%   name = file;
+%   file = [file '.dnet'];
+% end
+
+% @jeff ++
+name = file;
+file = [file '.dnet'];
 
 % generating node names 1:N if non existant
 N=length(bnet.dag);
 if isempty(bnet.names),
   for i=1:N,
-    keys{i}=['' num2str(i) ''];
-    vals{i}=i;
+    keys_{i}=['' num2str(i) ''];
+    vals_{i}=i;
   end
-  bnet.names = assocarray(keys, vals);
+  bnet.names = assocarray(keys_, vals_);
 end
 
 % header of the file
-fid = fopen(file, 'w');
+fid = fopen([outputdir '/' file], 'w');
 fprintf(fid, '// ~->[DNET-1]->~\n\n');
 fprintf(fid, '// exported from the Bayes Net Toolbox with export_dnet function \n');
 fprintf(fid, '// please report bugs to francois.olivier.c.h@gmail.com\n');
@@ -42,10 +47,19 @@ if proba, fprintf(fid, '// Take care !  Parents'' order isn''t the same in proba
 fprintf(fid, ['\nbnet ' name ' {']);
 
 % main loop
-for node = 1:N
-  name = get_key(bnet.names,node);
 
-  fprintf(fid, ['\nnode ' name ' {']);
+% @jeff --
+%for node = 1:N
+%  get_keys(bnet.names, node)
+
+% @jeff ++
+keys_array = keys(bnet.names);
+for node = 1:length(keys_array)
+    
+  key_ = keys_array{node};
+  %name = bnet.names(key_);
+
+  fprintf(fid, ['\nnode ' key_ ' {']);
 
   fprintf(fid, '\n\tkind = NATURE;');
 
@@ -61,8 +75,12 @@ for node = 1:N
 % declare parent in counter order to be coherent with prob section
   fprintf(fid, '\n\tparents = (');
   par = bnet.parents{node};
-  for l=length(par):-1:1
-    fprintf(fid, '%s',get_key(bnet.names,par(l)));
+  for l=length(par):-1:1 
+      
+    key_ = keys_array{par(l)};
+    %name = bnet.names(key_);      
+      
+    fprintf(fid, '%s', key_);
     if l~=1, fprintf(fid, ', '); end
   end, fprintf(fid, ');');
 
@@ -77,26 +95,32 @@ for node = 1:N
             fprintf(fid, '\t//');
         if ~isempty(par),
             for l = unique(par), %right order this time because of the way both BNT and netica work
-                fprintf(fid, '\t%s', get_key(bnet.names,l));
+                
+                key_ = keys_array{1};
+                %name = bnet.names(key_);  
+    
+                fprintf(fid, '\t%s', key_);
             end
         end
 
         % opens tab
         fprintf(fid, '\n\t');
-        for l = unique(par),
-            fprintf(fid, '(');
+        for l = unique(par), 
+           fprintf(fid, '(');
         end
 
         % fullfils probs
         CPT = CPT_from_bnet(bnet);
         CPT = CPT{node};
         CPT=CPT(:);            % good order whatever the node size ????
+                
         if isempty(par),
+            fprintf(fid, '('); %jeff
             fprintf(fid, '\t');
             for i=1:length(CPT)-1,
-                fprintf(fid, '%1.4f, ', CPT(i));
+                fprintf(fid, '%1.9f, ', CPT(i));
             end
-            fprintf(fid, '%1.4f);',CPT(end));
+            fprintf(fid, '%1.9f);',CPT(end));
         else                   % if there are parents
             endi=0;
             parsiz = prod(bnet.node_sizes([par]));
@@ -106,8 +130,8 @@ for node = 1:N
                 fprintf(fid, '(\t');
                 for j = 1:bnet.node_sizes(node)
                     prob = CPT(i+parsiz*(j-1));
-                    if j~=bnet.node_sizes(node), fprintf(fid, '%1.4f, ',prob);
-                    else fprintf(fid, '%1.4f',prob); end
+                    if j~=bnet.node_sizes(node), fprintf(fid, '%1.9f, ',prob);
+                    else fprintf(fid, '%1.9f',prob); end
                 end
 
                 % closes parenthesis if needed
@@ -150,4 +174,4 @@ fprintf(fid,'\n};\n');
 fclose(fid);
 
 % outputs string
-S = [pwd '/' file];
+S = [outputdir '/' file];
